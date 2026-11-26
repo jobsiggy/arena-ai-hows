@@ -28,4 +28,11 @@ python3 -m http.server   # from this folder, then open http://localhost:8000
   Eval & Rubric Design Template, and Phased Execution Plan with one click.
 - **Animated steps** — fade/slide transitions, progress bar, reduced-motion friendly.
 
+### New: research-backed tools
+
+- **Arena Signals Reference** — the Agent Arena signals (Confirmed Success, Praise vs. Complaint, Steerability, Bash Reliability, Tool Hallucination, plus the newer UA/FA/DC Alignment Index signals) with definitions and the prompt implications for each.
+- **Prompt Quality Checker** — paste any prompt (or check the live wizard prompt) and get an automated pass/fail checklist against Arena best practices.
+- **Best-of-N Runner** — generate N-run packs of the prompt for best-of-N execution in Arena (Arena assigns models randomly per chat, so N runs of the same prompt is the practical way to get more model diversity).
+- **Export** — export the Prompt Brief (.md) or the wizard state (.json).
+
 State is saved in your browser's localStorage and is reset via the "Reset wizard" button.

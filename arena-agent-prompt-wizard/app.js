@@ -585,6 +585,173 @@
     });
   }
 
+  // ---------- Arena signals reference ----------
+
+  var ARENA_SIGNALS = [
+    {
+      id: 'confirmed-success',
+      name: 'Confirmed Success',
+      direction: 'higher is better',
+      description: 'Only a "yes" answer to the "Did this complete your task?" pop-up counts — silent endings, "perfect, thanks" and walking away earn nothing.',
+      promptImplication: 'Make the deliverables explicit and ask for the artifact: "Write <path> and confirm it is done".'
+    },
+    {
+      id: 'praise-vs-complaint',
+      name: 'Praise vs. Complaint',
+      direction: 'higher is better',
+      description: 'Whether a task has more unprompted praise than complaints; equal counts or no sentiment are not scored.',
+      promptImplication: 'Use plain, precise task statements — avoid over-promising or vague wording that tends to generate complaints.'
+    },
+    {
+      id: 'steerability',
+      name: 'Steerability',
+      direction: 'higher is better',
+      description: 'Steering effort per turn: none, low (one correction that lands), or high (a correction that has to be repeated).',
+      promptImplication: 'State scope, ambiguity handling and "pause and ask" rules upfront so corrections land the first time.'
+    },
+    {
+      id: 'bash-reliability',
+      name: 'Bash Reliability (a.k.a. Bash Recovery)',
+      direction: 'higher is better',
+      description: 'How few retries the agent needs to recover from model-caused errors; searches that find nothing count as successes.',
+      promptImplication: 'Give the agent a disciplined error-recovery rule and non-destructive defaults (e.g., --dry-run first, never piped destructive commands).'
+    },
+    {
+      id: 'tool-hallucination',
+      name: 'Tool Hallucination',
+      direction: 'lower is better',
+      description: 'Rate of calls to tools that do not exist, use nonexistent signatures, or claim capabilities the agent lacks.',
+      promptImplication: 'List allowed tools explicitly and say "You may ONLY use the tools listed"; give tool descriptions with their signatures and usage triggers.'
+    },
+    {
+      id: 'unauthorized-action',
+      name: 'Unauthorized Action',
+      direction: 'lower is better',
+      description: 'Acting beyond the user\'s request or permissions.',
+      promptImplication: 'Set explicit allowed/restricted actions and approval gates — least-privilege boundaries.'
+    },
+    {
+      id: 'false-attribution',
+      name: 'False Attribution',
+      direction: 'lower is better',
+      description: 'Attributing something to the user that contradicts the evidence.',
+      promptImplication: 'Ask the agent to verify claims against files or output before reporting, and state its assumptions.'
+    },
+    {
+      id: 'deceptive-completion',
+      name: 'Deceptive Completion',
+      direction: 'lower is better',
+      description: 'Claiming a task is complete when it is not ("Bluffing" / "Bluster").',
+      promptImplication: 'Make done verifiable: list deliverables, done criteria, and evidence the agent should cite.'
+    }
+  ];
+
+  function renderSignals(filter) {
+    var list = $('arenaSignalsList');
+    var f = String(filter == null ? '' : filter).trim().toLowerCase();
+    var visible = ARENA_SIGNALS.filter(function (s) {
+      return !f ||
+        s.name.toLowerCase().indexOf(f) !== -1 ||
+        s.description.toLowerCase().indexOf(f) !== -1 ||
+        s.promptImplication.toLowerCase().indexOf(f) !== -1;
+    });
+    list.innerHTML = visible.length
+      ? visible.map(function (s) {
+          return '<li class="signal-card fade-in">' +
+            '<div class="signal-head">' +
+              '<span class="signal-name">' + esc(s.name) + '</span>' +
+              '<span class="signal-dir' + (s.direction.indexOf('lower') !== -1 ? ' dir-lower' : '') + '">' + esc(s.direction) + '</span>' +
+            '</div>' +
+            '<p class="signal-desc">' + esc(s.description) + '</p>' +
+            '<p class="signal-impl"><strong>Prompt implication:</strong> ' + esc(s.promptImplication) + '</p>' +
+          '</li>';
+        }).join('')
+      : '<li class="signal-card empty">No signals match.</li>';
+  }
+
+  // ---------- prompt quality checker ----------
+
+  function checkPrompt(text) {
+    var lines = [];
+    var passed = 0, total = 0;
+    function check(re, label, fix) {
+      total += 1;
+      var ok = re.test(text || '');
+      if (ok) { passed += 1; lines.push('\u2713 ' + label); }
+      else { lines.push('\u2717 ' + label + (fix ? ' \u2014 ' + fix : '')); }
+    }
+    check(/definition of done|done criteria|when (the )?job (is )?done|when.*(finished|complete)/i,
+      'Definition of done', 'Add an explicit "when it is done" criterion with measurable evidence.');
+    check(/goal|objective|problem to solve|artifact to build|task/i,
+      'Goal or objective stated', 'State the exact outcome in 1-2 sentences.');
+    check(/deliverable|file path|exact (file )?output|format|schema/i,
+      'Exact outputs/deliverables', 'List the exact paths, formats or outputs that must exist.');
+    check(/constraint|must not|do not|don\'t|never |restrict|limit|out of scope/i,
+      'Hard constraints or boundaries');
+    check(/plan|step|phase|first.*then|sequence/i,
+      'Plan or step sequence');
+    check(/ambig|underspecified|pause.*ask|ask.*before assuming|if.*conflict/i,
+      'Ambiguity handling');
+    check(/approval|gate|human check|read-only|do not send/i,
+      'Approval/permission gates');
+    check(/error.*recovery|twice|diagnos|root cause/i,
+      'Error-recovery rule');
+
+    var pct = Math.round((passed / total) * 100);
+    var verdict;
+    if (pct >= 80) verdict = 'Strong \u2014 likely to do well on Arena Agent Mode.';
+    else if (pct >= 50) verdict = 'Good \u2014 a few gaps to strengthen before running.';
+    else verdict = 'Weak \u2014 several gaps; use the fix hints to improve it.';
+    $('qualityScore').textContent = passed + '/' + total + ' checks passed';
+    $('qualityVerdict').textContent = verdict;
+    $('qualityReport').innerHTML = lines.map(function (l) {
+      return '<li class="' + (l.charAt(0) === '\u2713' ? 'check-ok' : 'check-bad') + '">' + esc(l) + '</li>';
+    }).join('');
+    return pct;
+  }
+
+  // ---------- best-of-N runner ----------
+
+  function generatePack(n) {
+    var base = renderPromptBrief();
+    var runs = [];
+    for (var i = 0; i < n; i++) {
+      var suffix = '';
+      if (i > 0) {
+        suffix = '\n\n<!-- Arena run ' + (i + 1) + ': paste this into arena.ai/agent in a fresh chat for model diversity. -->';
+      }
+      runs.push(base + suffix);
+    }
+    $('runPackPreview').textContent = runs.map(function (p, i) {
+      return '# Arena run ' + (i + 1) + '\n\n```\n' + p + '\n```\n';
+    }).join('\n');
+    setStatus('Run pack generated (' + n + ' run(s)). Copy the pack or select runs from the preview.');
+  }
+
+  // ---------- export ----------
+
+  function download(filename, text, type) {
+    var blob = new Blob([text], { type: type || 'text/plain' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function exportBrief() {
+    download('arena-prompt-brief.md', renderPromptBrief(), 'text/markdown');
+    setStatus('Prompt Brief exported as arena-prompt-brief.md.');
+  }
+
+  function exportState() {
+    download('arena-wizard-state.json', JSON.stringify(S, null, 2), 'application/json');
+    setStatus('Wizard state exported as arena-wizard-state.json.');
+  }
+
   // ---------- init ----------
 
   load();
@@ -593,6 +760,29 @@
   renderStepper();
   renderStep();
   renderLibrary('');
+  renderSignals('');
+
+  $('signalsSearch').addEventListener('input', function (e) { renderSignals(e.target.value); });
+  $('checkLiveBtn').addEventListener('click', function () {
+    $('promptCheckInput').value = renderPromptBrief();
+    checkPrompt(renderPromptBrief());
+    setStatus('Checked the live wizard prompt.');
+  });
+  $('checkBtn').addEventListener('click', function () {
+    checkPrompt($('promptCheckInput').value);
+    setStatus('Checked the pasted prompt.');
+  });
+  $('generatePackBtn').addEventListener('click', function () {
+    var n = parseInt($('bestOfNInput').value, 10);
+    if (!n || n < 1) n = 3;
+    if (n > 8) n = 8;
+    generatePack(n);
+  });
+  $('copyPackBtn').addEventListener('click', function () {
+    copyText($('runPackPreview').textContent);
+  });
+  $('exportMdBtn').addEventListener('click', exportBrief);
+  $('exportJsonBtn').addEventListener('click', exportState);
 
   $('prevBtn').addEventListener('click', prevStep);
   $('nextBtn').addEventListener('click', nextStep);
