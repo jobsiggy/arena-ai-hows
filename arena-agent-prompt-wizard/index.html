@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena AI Agent Prompt Builder</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>Arena AI Agent Prompt Builder</h1>
+  <p>Wizard-based interview to build the ultimate Arena AI prompt, plus tools to develop evals &amp; rubrics that guarantee top-quality agent outputs.</p>
+</header>
+
+<main>
+  <section class="panel progress-panel">
+    <div class="progress">
+      <div class="progress-track" id="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <span class="progress-label" id="progressLabel">0%</span>
+    </div>
+    <nav class="stepper" id="stepperList" aria-label="Wizard steps"></nav>
+  </section>
+
+  <div class="step-area" id="stepContent"></div>
+
+  <section class="panel actions-panel">
+    <div class="actions">
+      <button type="button" id="prevBtn" class="btn">Back</button>
+      <button type="button" id="nextBtn" class="btn primary">Next</button>
+      <button type="button" id="resetBtn" class="btn">Reset wizard</button>
+    </div>
+  </section>
+
+  <section class="panel preview-panel">
+    <div class="panel-head"><h2>Live Prompt Brief <small>(updates as you answer)</small></h2></div>
+    <div class="preview-actions">
+      <button type="button" id="copyPromptBtn" class="btn">Copy Prompt Brief</button>
+      <button type="button" id="sendToArenaBtn" class="btn primary">Send to Arena (open arena.ai/agent)</button>
+    </div>
+    <pre id="previewCode" class="code"></pre>
+  </section>
+
+  <section class="panel eval-panel">
+    <div class="panel-head"><h2>Eval &amp; Rubric Tools <small>(guarantee top-quality outputs)</small></h2></div>
+    <div class="eval-actions">
+      <button type="button" id="generateRubricBtn" class="btn">Generate rubric markdown</button>
+      <button type="button" id="copyRubricBtn" class="btn">Copy generated rubric</button>
+      <button type="button" id="copyEvalSpecBtn" class="btn">Copy Eval &amp; Rubric Spec</button>
+    </div>
+    <pre id="rubricPreview" class="code"></pre>
+    <pre id="evalSpecPreview" class="code"></pre>
+    <p class="hint">Best-of-N tip: run the generated Arena prompt twice and pick the stronger result — Arena assigns orchestrator models at random per chat.</p>
+  </section>
+
+  <section class="panel library-panel">
+    <div class="panel-head"><h2>Template Library <small>(search to filter)</small></h2></div>
+    <div class="library-actions">
+      <label for="librarySearch">Search templates</label>
+      <input type="search" id="librarySearch" class="textarea" placeholder="e.g. guardrails, eval…">
+    </div>
+    <ul id="libraryList" class="library-list"></ul>
+  </section>
+</main>
+
+<footer>
+  Free static app — open <code>index.html</code> anywhere or host on GitHub Pages / Vercel. Works offline (state saved in your browser's localStorage).
+</footer>
+
+<div id="statusToast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
